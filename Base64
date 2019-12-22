@@ -1,0 +1,134 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+
+namespace Base64Enc
+{
+    internal class Program
+    {
+        private const int BYTE_GROUP_COUNT = 3;
+        private const byte FIRST_6_BITS_MASK = 0xFC;
+        private const byte LAST_6_BITS_MASK = 0x3F;
+        private const byte FIRST_2_BITS_MASK = 0xc0;
+        private const byte LAST_4_BITS_MASK = 0xF;
+        private const byte LAST_2_BITS_MASK = 0x3;
+        private const byte FIRST_4_BITS_MASK = 0xF0;
+        private static List<char> _symbols = new List<char>() {
+            'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
+            'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P',
+            'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X',
+            'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f',
+            'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n',
+            'o', 'p', 'q', 'r', 's', 't', 'u', 'v',
+            'w', 'x', 'y', 'z', '0', '1', '2', '3',
+            '4', '5', '6', '7', '8', '9', '+', '/'
+        };
+        
+        public static void Main(string[] args)
+        {
+            Console.WriteLine("Enter length of sequence");
+            int sequenceEncodingLength = Convert.ToInt32(Console.ReadLine());
+
+            Console.WriteLine("Enter ur sequence encoding from (0123456789ABCDEF)");
+            string sequenceEncoding = Convert.ToString(Console.ReadLine());
+            var timer = System.Diagnostics.Stopwatch.StartNew();
+            
+            string[] splittedHexadecimalSequence = sequenceEncoding.Split(' ');
+            byte[] encodeBytes = new byte[sequenceEncodingLength];
+            int counter = 0;
+            
+            foreach (var hexadecimal in splittedHexadecimalSequence)
+            {
+                var decimalNumber = Convert.ToByte(hexadecimal, 16);
+                encodeBytes[counter] = decimalNumber;
+                counter++;
+            }
+
+            int balance;
+
+            if ((encodeBytes.Length % BYTE_GROUP_COUNT) != 0)
+            {
+                balance = 3 - (encodeBytes.Length % BYTE_GROUP_COUNT);
+                encodeBytes = GetNewByteArray(balance, encodeBytes);
+            }
+            else
+                balance = 0;
+            
+            var byteGroup = encodeBytes.Length / BYTE_GROUP_COUNT;
+            string encodedString = "";
+
+            for (int i = 0; i < byteGroup; i++)
+            {
+                int firstByteOfGroupIndex = i * BYTE_GROUP_COUNT;
+                encodedString += Encode(encodeBytes[firstByteOfGroupIndex], encodeBytes[firstByteOfGroupIndex + 1], encodeBytes[firstByteOfGroupIndex + 2]);
+            }
+            
+            switch (balance)
+            {
+                case 0:
+                    break;
+                case 1:
+                    if (encodedString[encodedString.Length - 1] == 'A')
+                    {
+                        encodedString = encodedString.Substring(0, encodedString.Length - 1);
+                        encodedString = $"{encodedString}=";
+                    }
+                    break;
+                case 2:
+                    if (encodedString[encodedString.Length - 2] == 'A')
+                    {
+                        encodedString = encodedString.Substring(0, encodedString.Length - 2);
+                        encodedString = $"{encodedString}==";
+                    }
+                    break;
+                default:
+                    break;
+            }
+            
+            Console.WriteLine(encodedString);
+            timer.Stop();
+            Console.WriteLine(timer.Elapsed);
+            
+        }
+        
+        private static int PutMask(byte currentByte, byte mask) {
+            BitArray bitArray = new BitArray(new byte[] { currentByte });
+            BitArray bitArrayMask = new BitArray(new byte[] { mask });
+            bitArrayMask.And(bitArray);
+            byte[] bytes = new byte[1];
+            bitArrayMask.CopyTo(bytes, 0);
+            return (int) bytes[0];
+        }
+        
+        private static string Encode (byte byte1, byte byte2, byte byte3) 
+        {
+            
+            int encodedDecimal1 = PutMask(byte1, FIRST_6_BITS_MASK) >> 2;
+
+            int encodedDecimal2 = PutMask(byte1, LAST_2_BITS_MASK) << 4;
+            encodedDecimal2 += PutMask(byte2, FIRST_4_BITS_MASK) >> 4;
+
+            int encodedDecimal3 = PutMask(byte2, LAST_4_BITS_MASK) << 2;
+            encodedDecimal3 += PutMask(byte3, FIRST_2_BITS_MASK) >> 6;
+
+            int encodedDecimal4 = PutMask(byte3, LAST_6_BITS_MASK);
+
+            return _symbols[encodedDecimal1] + _symbols[encodedDecimal2].ToString() +
+                   _symbols[encodedDecimal3] + _symbols[encodedDecimal4];
+        }
+
+        private static byte[] GetNewByteArray(int balance, byte[] oldArray)
+        {
+            byte[] newByteArray = new byte[oldArray.Length + balance];
+            for (int i = 0; i < newByteArray.Length; i++)
+            {
+                if (i < oldArray.Length)
+                    newByteArray[i] = oldArray[i];
+                else
+                    newByteArray[i] = 0;
+            }
+
+            return newByteArray;
+        }
+    }
+}
